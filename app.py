@@ -206,14 +206,17 @@ elif choice == "Upload Image":
 
             if retinal_pred == 1:
                 st.write(f"This is a retinal image (Confidence: {retinal_conf:.2f})")
-                if amd_pred == 0:
-                    st.write(f"AMD detected (Confidence: {amd_conf:.2f})")
-                    # Generate Grad-CAM visualization
-                    target_layer = amd_model.features[8]
-                    gradcam_image = generate_gradcam_image(image_tensor, amd_model, target_layer)
-                    st.image(gradcam_image, caption='Grad-CAM Visualization', use_column_width=True)
+                if amd_pred is not None:
+                    if amd_pred == 0:
+                        st.write(f"AMD detected (Confidence: {amd_conf:.2f})")
+                        # Generate Grad-CAM visualization
+                        target_layer = amd_model.efficientnet._conv_head  # Adjust to the correct layer
+                        gradcam_image = generate_gradcam_image(image_tensor, amd_model, target_layer)
+                        st.image(gradcam_image, caption='Grad-CAM Visualization', use_column_width=True)
+                    else:
+                        st.write(f"No AMD detected (Confidence: {amd_conf:.2f})")
                 else:
-                    st.write(f"No AMD detected (Confidence: {amd_conf:.2f})")
+                    st.write("Unable to determine AMD presence.")
             else:
                 st.write(f"This is not a retinal image (Confidence: {1-retinal_conf:.2f})")
 
