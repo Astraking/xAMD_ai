@@ -201,7 +201,7 @@ elif choice == "Upload Image":
 
                 if retinal_pred == 0:
                     st.write(f"This is a retinal image (Confidence: {retinal_conf:.2f})")
-                    if amd_pred == 0:
+                    if amd_pred == 1:
                         st.write(f"AMD detected (Confidence: {amd_conf:.2f})")
                         # Generate Grad-CAM visualization
                         target_layer = amd_model.efficientnet.features[8]
@@ -210,7 +210,7 @@ elif choice == "Upload Image":
                     else:
                         st.write(f"No AMD detected (Confidence: {amd_conf:.2f})")
                 else:
-                    st.write(f"This is not a retinal image (Confidence: {1-retinal_conf:.2f})")
+                    st.write(f"This is not a retinal image (Confidence: {retinal_conf:.2f})")
             except Exception as e:
                 st.error(f"Error processing image: {str(e)}")
 
