@@ -38,9 +38,9 @@ class BinaryClassifier(nn.Module):
         x = self.sigmoid(x)
         return x
 
-retinal_model = BinaryClassifier()
-retinal_model.load_state_dict(torch.load(retinal_model_path, map_location=torch.device('cpu')))
-retinal_model.eval()
+# retinal_model = BinaryClassifier()
+# retinal_model.load_state_dict(torch.load(retinal_model_path, map_location=torch.device('cpu')))
+# retinal_model.eval()
 
 class AMDModel(nn.Module):
     def __init__(self):
