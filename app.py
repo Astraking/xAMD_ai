@@ -48,10 +48,7 @@ def load_model(model_class, path):
     try:
         model = model_class()
         state_dict = torch.load(path, map_location=torch.device('cpu'))
-        if isinstance(state_dict, dict):
-            model.load_state_dict(state_dict)
-        else:
-            model = state_dict
+        model.load_state_dict(state_dict)
         model.eval()
         return model
     except Exception as e:
@@ -154,7 +151,7 @@ def preprocess_image(_image):
     # Auto-equalize histogram
     image = ImageOps.equalize(image)
     
-    return _image
+    return image
 
 def process_image(image, retinal_model, amd_model):
     preprocessed_image = preprocess_image(image)
@@ -162,10 +159,10 @@ def process_image(image, retinal_model, amd_model):
     
     with torch.no_grad():
         retinal_output = retinal_model(image_tensor)
-        retinal_pred = torch.round(retinal_output).item()
+        retinal_pred = (retinal_output > 0.5).float().item()  # Use a threshold of 0.5
         retinal_conf = retinal_output.item()
 
-    if retinal_pred == 0:
+    if retinal_pred == 0:  # This is a retinal image
         with torch.no_grad():
             amd_output = amd_model(image_tensor)
             amd_pred = torch.argmax(amd_output, dim=1).item()
@@ -202,22 +199,25 @@ elif choice == "Upload Image":
             with st.spinner("Processing image..."):
                 retinal_pred, retinal_conf, amd_pred, amd_conf, image_tensor = process_image(image, retinal_model, amd_model)
 
+            # Debugging outputs
+            st.write(f"Retinal Model Output: {retinal_conf:.2f}")
+            st.write(f"Retinal Prediction: {'Retinal' if retinal_pred == 0 else 'Non-Retinal'}")
+
             if retinal_pred == 0:
                 st.write(f"This is a retinal image (Confidence: {retinal_conf:.2f})")
                 if amd_pred is not None:
                     if amd_pred == 0:
                         st.write(f"AMD detected (Confidence: {amd_conf:.2f})")
                         # Generate Grad-CAM visualization
-                        target_layer = amd_model.features[8]
+                        target_layer = amd_model.efficientnet._conv_head
                         gradcam_image = generate_gradcam_image(image_tensor, amd_model, target_layer)
                         st.image(gradcam_image, caption='Grad-CAM Visualization', use_column_width=True)
                     else:
                         st.write(f"No AMD detected (Confidence: {amd_conf:.2f})")
                 else:
-                    st.write("Unable to determine AMD presence.")
+                    st.write("AMD Model did not return a prediction.")
             else:
-                st.write(f"This is not a retinal image (Confidence: {retinal_conf:.2f})")
-
+                st.write("The uploaded image was classified as non-retinal.")
 elif choice == "About AMD":
     st.header("About Age-related Macular Degeneration (AMD)")
     st.write("""
@@ -256,3 +256,10 @@ elif choice == "About AMD":
 # Add a footer
 st.sidebar.markdown("---")
 st.sidebar.info("Developed by [Your Name/Organization]")
+
+# Additional information or resources can be added here
+st.sidebar.markdown("### Additional Resources")
+st.sidebar.write("""
+- [AMD Research and Treatment](https://www.americanmaculardegenerationfoundation.org/)
+- [AMD Support Groups](https://www.amdalliance.org/)
+""")
