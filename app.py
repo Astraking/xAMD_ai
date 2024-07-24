@@ -125,17 +125,23 @@ class GradCAM:
 def generate_gradcam_image(image, model, target_layer):
     grad_cam = GradCAM(model, target_layer)
     heatmap = grad_cam(image)
-
     heatmap = cv2.resize(heatmap, (image.shape[2], image.shape[3]))
     heatmap = np.uint8(255 * heatmap)
     heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-
     original_image = image.squeeze().permute(1, 2, 0).numpy()
+    # Normalize the image to [0, 1] range
     original_image = (original_image - original_image.min()) / (original_image.max() - original_image.min())
+    # Convert to uint8
     original_image = np.uint8(255 * original_image)
-
-    superimposed_image = heatmap * 0.4 + original_image
-
+    # Convert heatmap to RGB (it's currently in BGR)
+    heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB)
+    # Ensure both images are in the same data type
+    heatmap = heatmap.astype(np.float32) / 255
+    original_image = original_image.astype(np.float32) / 255
+    # Create the superimposed image
+    superimposed_image = heatmap * 0.4 + original_image * 0.6
+    # Ensure the final image is in [0, 1] range
+    superimposed_image = np.clip(superimposed_image, 0, 1)
     return superimposed_image
 
 @st.cache_data
