@@ -204,9 +204,9 @@ elif choice == "Upload Image":
             with st.spinner("Processing image..."):
                 retinal_pred, retinal_conf, amd_pred, amd_conf, image_tensor = process_image(image, retinal_model, amd_model)
 
-            if retinal_pred == 1:
+            if retinal_pred == 0:
                 st.write(f"This is a retinal image (Confidence: {retinal_conf:.2f})")
-                if amd_pred == 1:
+                if amd_pred == 0:
                     st.write(f"AMD detected (Confidence: {amd_conf:.2f})")
                     # Generate Grad-CAM visualization
                     target_layer = amd_model.features[8]
