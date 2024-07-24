@@ -21,7 +21,11 @@ class BinaryClassifier(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
-        x = self.efficientnet(x)
+        x = self.efficientnet.extract_features(x)
+        x = self.efficientnet._avg_pooling(x)
+        x = x.flatten(start_dim=1)
+        x = self.efficientnet._dropout(x)
+        x = self.efficientnet._fc(x)
         x = self.sigmoid(x)
         return x
 
@@ -32,7 +36,12 @@ class AMDModel(nn.Module):
         self.efficientnet._fc = nn.Linear(self.efficientnet._fc.in_features, num_classes)
 
     def forward(self, x):
-        return self.efficientnet(x)
+        x = self.efficientnet.extract_features(x)
+        x = self.efficientnet._avg_pooling(x)
+        x = x.flatten(start_dim=1)
+        x = self.efficientnet._dropout(x)
+        x = self.efficientnet._fc(x)
+        return x
 
 @st.cache_resource
 def load_model(model_class, path):
@@ -194,7 +203,7 @@ elif choice == "Upload Image":
                 if amd_pred == 0:
                     st.write(f"AMD detected (Confidence: {amd_conf:.2f})")
                     # Generate Grad-CAM visualization
-                    target_layer = amd_model.efficientnet._conv_head
+                    target_layer = amd_model.efficientnet.features[8]
                     gradcam_image = generate_gradcam_image(image_tensor, amd_model, target_layer)
                     st.image(gradcam_image, caption='Grad-CAM Visualization', use_column_width=True)
                 else:
@@ -239,4 +248,4 @@ elif choice == "About AMD":
 
 # Add a footer
 st.sidebar.markdown("---")
-st.sidebar.info("Developed by xAMD.ai Inc.")
+st.sidebar.info("Developed by [Your Name/Organization]")
