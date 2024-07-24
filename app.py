@@ -3,29 +3,12 @@ import torch
 import torch.nn as nn
 from efficientnet_pytorch import EfficientNet
 from PIL import Image
-import io
 import torchvision.transforms as transforms
-import os
-import gdown
 import numpy as np
 import cv2
+import os
 
-# Define Google Drive file IDs
-retinal_model_id = '1Q9NCV87_w6vTbsJAFkzGbYP2cE5-LGo1'
-amd_model_id = '1D1WZXSRvFJbarBhn1WGq01Xqd11jEUvw'
-
-# Define model paths
-retinal_model_path = 'binary_classifier.pth'
-amd_model_path = 'amd_model.pth'
-
-# Download models if they don't exist
-if not os.path.exists(retinal_model_path):
-    gdown.download(f'https://drive.google.com/uc?id={retinal_model_id}', retinal_model_path, quiet=False)
-
-if not os.path.exists(amd_model_path):
-    gdown.download(f'https://drive.google.com/uc?id={amd_model_id}', amd_model_path, quiet=False)
-
-# Load models
+# Define model class
 class BinaryClassifier(nn.Module):
     def __init__(self):
         super(BinaryClassifier, self).__init__()
@@ -38,22 +21,40 @@ class BinaryClassifier(nn.Module):
         x = self.sigmoid(x)
         return x
 
-retinal_model = torch.load('binary_classifier.pth')
-retinal_model.load_state_dict(torch.load(retinal_model_path, map_location=torch.device('cpu')))
-retinal_model.eval()
-
 class AMDModel(nn.Module):
     def __init__(self):
         super(AMDModel, self).__init__()
         self.efficientnet = EfficientNet.from_pretrained('efficientnet-b1')
-        self.efficientnet._fc = nn.Linear(self.efficientnet._fc.in_features, 2)  # Assuming 2 classes: AMD and Non-AMD
+        self.efficientnet._fc = nn.Linear(self.efficientnet._fc.in_features, 2)  # Assuming 2 classes
 
     def forward(self, x):
         return self.efficientnet(x)
 
-amd_model = torch.load('amd_model.pth')
-# amd_model.load_state_dict(torch.load(amd_model_path, map_location=torch.device('cpu')))
-# amd_model.eval()
+# Load models
+def load_model(model_class, path):
+    model = model_class()
+    model.load_state_dict(torch.load(path, map_location=torch.device('cpu')))
+    model.eval()
+    return model
+
+# Define model paths
+retinal_model_path = 'retinal_model.pth'
+amd_model_path = 'amd_model.pth'
+
+# Check if models exist, download if not
+if not os.path.exists(retinal_model_path):
+    import gdown
+    retinal_model_id = '1nlcoXT4u06jSGVFDKZU5G4gbY0IJlWxr'
+    gdown.download(f'https://drive.google.com/uc?id={retinal_model_id}', retinal_model_path, quiet=False)
+
+if not os.path.exists(amd_model_path):
+    import gdown
+    amd_model_id = '1D1WZXSRvFJbarBhn1WGq01Xqd11jEUvw'
+    gdown.download(f'https://drive.google.com/uc?id={amd_model_id}', amd_model_path, quiet=False)
+
+# Load the models
+retinal_model = load_model(BinaryClassifier, retinal_model_path)
+amd_model = load_model(AMDModel, amd_model_path)
 
 # Define image transformations
 transform = transforms.Compose([
