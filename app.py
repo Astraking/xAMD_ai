@@ -1,18 +1,29 @@
+import os
+import gdown
 import streamlit as st
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
 
-# Load models
-# Assuming your models are in the same directory as the app.py file in your repository
+# Define Google Drive file IDs
+retinal_model_id = '1nlcoXT4u06jSGVFDKZU5G4gbY0IJlWxr'
+amd_model_id = '1D1WZXSRvFJbarBhn1WGq01Xqd11jEUvw'
+
+# Define model paths
 retinal_model_path = 'retinal_model.pth'
 amd_model_path = 'amd_model.pth'
 
-# Load the retinal classifier model
+# Download models if they don't exist
+if not os.path.exists(retinal_model_path):
+    gdown.download(f'https://drive.google.com/uc?id={retinal_model_id}', retinal_model_path, quiet=False)
+
+if not os.path.exists(amd_model_path):
+    gdown.download(f'https://drive.google.com/uc?id={amd_model_id}', amd_model_path, quiet=False)
+
+# Load models
 retinal_model = torch.load(retinal_model_path, map_location=torch.device('cpu'))
 retinal_model.eval()
 
-# Load the AMD classifier model
 amd_model = torch.load(amd_model_path, map_location=torch.device('cpu'))
 amd_model.eval()
 
@@ -54,3 +65,4 @@ if uploaded_file is not None:
             st.write("No AMD detected.")
     else:
         st.write("This is not a retinal image.")
+
