@@ -200,7 +200,7 @@ elif choice == "Upload Image":
 
             if retinal_pred == 1:
                 st.write(f"This is a retinal image (Confidence: {retinal_conf:.2f})")
-                if amd_pred == 0:
+                if amd_pred == 1:
                     st.write(f"AMD detected (Confidence: {amd_conf:.2f})")
                     # Generate Grad-CAM visualization
                     target_layer = amd_model.features[8]
