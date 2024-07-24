@@ -11,7 +11,7 @@ import numpy as np
 import cv2
 
 # Define Google Drive file IDs
-retinal_model_id = '1nlcoXT4u06jSGVFDKZU5G4gbY0IJlWxr'
+retinal_model_id = '1Q9NCV87_w6vTbsJAFkzGbYP2cE5-LGo1'
 amd_model_id = '1D1WZXSRvFJbarBhn1WGq01Xqd11jEUvw'
 
 # Define model paths
@@ -39,8 +39,8 @@ class BinaryClassifier(nn.Module):
         return x
 
 retinal_model = torch.load('binary_classifier.pth')
-# retinal_model.load_state_dict(torch.load(retinal_model_path, map_location=torch.device('cpu')))
-# retinal_model.eval()
+retinal_model.load_state_dict(torch.load(retinal_model_path, map_location=torch.device('cpu')))
+retinal_model.eval()
 
 class AMDModel(nn.Module):
     def __init__(self):
