@@ -9,6 +9,9 @@ import cv2
 import os
 import gdown
 
+# Streamlit interface
+st.set_page_config(page_title="AMD Screening App", layout="wide")
+
 # Define model classes
 class BinaryClassifier(nn.Module):
     def __init__(self):
@@ -151,9 +154,6 @@ def process_image(image, retinal_model, amd_model):
         return retinal_pred, retinal_conf, amd_pred, amd_conf, image_tensor
     
     return retinal_pred, retinal_conf, None, None, image_tensor
-
-# Streamlit interface
-st.set_page_config(page_title="AMD Screening App", layout="wide")
 
 st.title("AMD Screening App")
 
