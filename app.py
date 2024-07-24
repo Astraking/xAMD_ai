@@ -1,11 +1,14 @@
-import os
-import gdown
 import streamlit as st
 import torch
+import torch.nn as nn
+from efficientnet_pytorch import EfficientNet
+from PIL import Image
+import io
 import torchvision.transforms as transforms
+import os
+import gdown
 import numpy as np
 import cv2
-from PIL import Image
 
 # Define Google Drive file IDs
 retinal_model_id = '1nlcoXT4u06jSGVFDKZU5G4gbY0IJlWxr'
@@ -23,10 +26,33 @@ if not os.path.exists(amd_model_path):
     gdown.download(f'https://drive.google.com/uc?id={amd_model_id}', amd_model_path, quiet=False)
 
 # Load models
-retinal_model = torch.load(retinal_model_path, map_location=torch.device('cpu'))
+class BinaryClassifier(nn.Module):
+    def __init__(self):
+        super(BinaryClassifier, self).__init__()
+        self.efficientnet = EfficientNet.from_pretrained('efficientnet-b1')
+        self.efficientnet._fc = nn.Linear(self.efficientnet._fc.in_features, 1)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        x = self.efficientnet(x)
+        x = self.sigmoid(x)
+        return x
+
+retinal_model = BinaryClassifier()
+retinal_model.load_state_dict(torch.load(retinal_model_path, map_location=torch.device('cpu')))
 retinal_model.eval()
 
-amd_model = torch.load(amd_model_path, map_location=torch.device('cpu'))
+class AMDModel(nn.Module):
+    def __init__(self):
+        super(AMDModel, self).__init__()
+        self.efficientnet = EfficientNet.from_pretrained('efficientnet-b1')
+        self.efficientnet._fc = nn.Linear(self.efficientnet._fc.in_features, 2)  # Assuming 2 classes: AMD and Non-AMD
+
+    def forward(self, x):
+        return self.efficientnet(x)
+
+amd_model = AMDModel()
+amd_model.load_state_dict(torch.load(amd_model_path, map_location=torch.device('cpu')))
 amd_model.eval()
 
 # Define image transformations
@@ -108,7 +134,7 @@ if choice == "Home":
 
 elif choice == "Upload Image":
     st.header("Upload Retinal Image")
-    uploaded_file = st.file_uploader("Choose an image...", type="jpg")
+    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
 
     if uploaded_file is not None:
         image = Image.open(uploaded_file)
@@ -122,9 +148,9 @@ elif choice == "Upload Image":
         # Check if the image is retinal
         with torch.no_grad():
             retinal_output = retinal_model(image_tensor)
-            retinal_pred = torch.argmax(retinal_output, dim=1).item()
+            retinal_pred = torch.round(retinal_output).item()
 
-        if retinal_pred == 0:
+        if retinal_pred == 1:
             st.write("This is a retinal image. Checking for AMD...")
             with torch.no_grad():
                 amd_output = amd_model(image_tensor)
@@ -133,7 +159,7 @@ elif choice == "Upload Image":
             if amd_pred == 0:
                 st.write("AMD detected.")
                 # Generate Grad-CAM visualization
-                target_layer = list(amd_model.children())[-1]  # Adjust based on your model architecture
+                target_layer = list(amd_model.efficientnet.children())[-1]  # Adjust based on your model architecture
                 gradcam_image = generate_gradcam_image(image_tensor, amd_model, target_layer)
                 st.image(gradcam_image, caption='Grad-CAM Visualization', use_column_width=True)
             else:
