@@ -3,7 +3,11 @@ import gdown
 import streamlit as st
 import torch
 import torchvision.transforms as transforms
+import numpy as np
+import cv2
 from PIL import Image
+from torchvision.models import resnet50
+from torch.nn import functional as F
 
 # Define Google Drive file IDs
 retinal_model_id = '1nlcoXT4u06jSGVFDKZU5G4gbY0IJlWxr'
@@ -34,6 +38,61 @@ transform = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
+# Grad-CAM class
+class GradCAM:
+    def __init__(self, model, target_layer):
+        self.model = model
+        self.target_layer = target_layer
+        self.gradient = None
+        self.feature_map = None
+
+        target_layer.register_forward_hook(self.save_feature_map)
+        target_layer.register_backward_hook(self.save_gradient)
+
+    def save_feature_map(self, module, input, output):
+        self.feature_map = output
+
+    def save_gradient(self, module, grad_input, grad_output):
+        self.gradient = grad_output[0]
+
+    def __call__(self, x):
+        self.model.zero_grad()
+        output = self.model(x)
+        pred = output.argmax(dim=1)
+
+        pred_class = output[0, pred]
+        pred_class.backward()
+
+        pooled_gradients = torch.mean(self.gradient, dim=[0, 2, 3])
+        feature_map = self.feature_map[0]
+
+        for i in range(len(pooled_gradients)):
+            feature_map[i, :, :] *= pooled_gradients[i]
+
+        heatmap = feature_map.detach().numpy()
+        heatmap = np.mean(heatmap, axis=0)
+        heatmap = np.maximum(heatmap, 0)
+        heatmap /= heatmap.max()
+
+        return heatmap
+
+# Function to generate Grad-CAM visualization
+def generate_gradcam_image(image, model, target_layer):
+    grad_cam = GradCAM(model, target_layer)
+    heatmap = grad_cam(image)
+
+    heatmap = cv2.resize(heatmap, (image.shape[2], image.shape[3]))
+    heatmap = np.uint8(255 * heatmap)
+    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+
+    original_image = image.squeeze().permute(1, 2, 0).numpy()
+    original_image = (original_image - original_image.min()) / (original_image.max() - original_image.min())
+    original_image = np.uint8(255 * original_image)
+
+    superimposed_image = heatmap * 0.4 + original_image
+
+    return superimposed_image
+
 # Streamlit interface
 st.title("AMD Screening App")
 
@@ -46,23 +105,26 @@ if uploaded_file is not None:
     st.write("Classifying...")
 
     # Preprocess the image
-    image = transform(image).unsqueeze(0)
+    image_tensor = transform(image).unsqueeze(0)
 
     # Check if the image is retinal
     with torch.no_grad():
-        retinal_output = retinal_model(image)
+        retinal_output = retinal_model(image_tensor)
         retinal_pred = torch.argmax(retinal_output, dim=1).item()
 
     if retinal_pred == 1:
         st.write("This is a retinal image. Checking for AMD...")
         with torch.no_grad():
-            amd_output = amd_model(image)
+            amd_output = amd_model(image_tensor)
             amd_pred = torch.argmax(amd_output, dim=1).item()
 
         if amd_pred == 1:
             st.write("AMD detected.")
+            # Generate Grad-CAM visualization
+            target_layer = list(amd_model.children())[-1] # Adjust based on your model architecture
+            gradcam_image = generate_gradcam_image(image_tensor, amd_model, target_layer)
+            st.image(gradcam_image, caption='Grad-CAM Visualization', use_column_width=True)
         else:
             st.write("No AMD detected.")
     else:
         st.write("This is not a retinal image.")
-
