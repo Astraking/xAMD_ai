@@ -6,8 +6,6 @@ import torchvision.transforms as transforms
 import numpy as np
 import cv2
 from PIL import Image
-from torchvision.models import resnet50
-from torch.nn import functional as F
 
 # Define Google Drive file IDs
 retinal_model_id = '1nlcoXT4u06jSGVFDKZU5G4gbY0IJlWxr'
@@ -96,35 +94,84 @@ def generate_gradcam_image(image, model, target_layer):
 # Streamlit interface
 st.title("AMD Screening App")
 
-uploaded_file = st.file_uploader("Choose an image...", type="jpg")
+# Navigation
+menu = ["Home", "Upload Image", "About AMD"]
+choice = st.sidebar.selectbox("Menu", menu)
 
-if uploaded_file is not None:
-    image = Image.open(uploaded_file)
-    st.image(image, caption='Uploaded Image.', use_column_width=True)
-    st.write("")
-    st.write("Classifying...")
+if choice == "Home":
+    st.header("Welcome to the AMD Screening App")
+    st.write("""
+    This application allows you to upload retinal images to screen for Age-related Macular Degeneration (AMD).
+    Please use the sidebar to navigate through the app.
+    """)
+    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/Macula.svg/1200px-Macula.svg.png", width=300)
 
-    # Preprocess the image
-    image_tensor = transform(image).unsqueeze(0)
+elif choice == "Upload Image":
+    st.header("Upload Retinal Image")
+    uploaded_file = st.file_uploader("Choose an image...", type="jpg")
 
-    # Check if the image is retinal
-    with torch.no_grad():
-        retinal_output = retinal_model(image_tensor)
-        retinal_pred = torch.argmax(retinal_output, dim=1).item()
+    if uploaded_file is not None:
+        image = Image.open(uploaded_file)
+        st.image(image, caption='Uploaded Image.', use_column_width=True)
+        st.write("")
+        st.write("Classifying...")
 
-    if retinal_pred == 1:
-        st.write("This is a retinal image. Checking for AMD...")
+        # Preprocess the image
+        image_tensor = transform(image).unsqueeze(0)
+
+        # Check if the image is retinal
         with torch.no_grad():
-            amd_output = amd_model(image_tensor)
-            amd_pred = torch.argmax(amd_output, dim=1).item()
+            retinal_output = retinal_model(image_tensor)
+            retinal_pred = torch.argmax(retinal_output, dim=1).item()
 
-        if amd_pred == 1:
-            st.write("AMD detected.")
-            # Generate Grad-CAM visualization
-            target_layer = list(amd_model.children())[-1] # Adjust based on your model architecture
-            gradcam_image = generate_gradcam_image(image_tensor, amd_model, target_layer)
-            st.image(gradcam_image, caption='Grad-CAM Visualization', use_column_width=True)
+        if retinal_pred == 1:
+            st.write("This is a retinal image. Checking for AMD...")
+            with torch.no_grad():
+                amd_output = amd_model(image_tensor)
+                amd_pred = torch.argmax(amd_output, dim=1).item()
+
+            if amd_pred == 1:
+                st.write("AMD detected.")
+                # Generate Grad-CAM visualization
+                target_layer = list(amd_model.children())[-1]  # Adjust based on your model architecture
+                gradcam_image = generate_gradcam_image(image_tensor, amd_model, target_layer)
+                st.image(gradcam_image, caption='Grad-CAM Visualization', use_column_width=True)
+            else:
+                st.write("No AMD detected.")
         else:
-            st.write("No AMD detected.")
-    else:
-        st.write("This is not a retinal image.")
+            st.write("This is not a retinal image.")
+
+elif choice == "About AMD":
+    st.header("About Age-related Macular Degeneration (AMD)")
+    st.write("""
+    Age-related macular degeneration (AMD) is an eye disease that can blur your central vision. It happens when aging causes damage to the macula — the part of the eye that controls sharp, straight-ahead vision. 
+    The macula is part of the retina (the light-sensitive tissue at the back of the eye). AMD is a common condition — it’s a leading cause of vision loss for older adults.
+    
+    ### Types of AMD
+    1. **Dry AMD**: This is the most common type. It happens when parts of the macula get thinner with age and tiny clumps of protein called drusen grow. You slowly lose central vision. There's no way to treat dry AMD yet.
+    2. **Wet AMD**: This type is less common but more serious. It happens when new, abnormal blood vessels grow under the retina. These vessels may leak blood or other fluids, causing scarring of the macula. You lose vision faster with wet AMD than with dry AMD.
+
+    ### Risk Factors
+    - Age (50 and older)
+    - Family history and genetics
+    - Race (more common in Caucasians)
+    - Smoking
+    - Cardiovascular disease
+
+    ### Symptoms
+    - Blurry or fuzzy vision
+    - Straight lines appear wavy
+    - Difficulty seeing in low light
+    - Difficulty recognizing faces
+
+    ### Prevention and Management
+    While there’s no cure for AMD, some lifestyle choices can help reduce the risk:
+    - Avoid smoking
+    - Exercise regularly
+    - Maintain normal blood pressure and cholesterol levels
+    - Eat a healthy diet rich in green leafy vegetables and fish
+    - Protect your eyes from UV light
+
+    For more information, visit [NEI AMD Information](https://www.nei.nih.gov/learn-about-eye-health/eye-conditions-and-diseases/age-related-macular-degeneration).
+    """)
+    st.image("https://www.nei.nih.gov/sites/default/files/styles/featured_image/public/2019-06/macula_cross_section_v3_500px.jpg", width=300)
