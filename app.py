@@ -50,7 +50,7 @@ def download_model(model_id, model_path):
             gdown.download(f'https://drive.google.com/uc?id={model_id}', model_path, quiet=False)
 
 # Define model paths
-retinal_model_path = 'retinal_model.pth'
+retinal_model_path = 'binary_classifier.pth'
 amd_model_path = 'amd_model.pth'
 
 # Download models
