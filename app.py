@@ -15,7 +15,7 @@ retinal_model_id = '1nlcoXT4u06jSGVFDKZU5G4gbY0IJlWxr'
 amd_model_id = '1D1WZXSRvFJbarBhn1WGq01Xqd11jEUvw'
 
 # Define model paths
-retinal_model_path = 'retinal_model.pth'
+retinal_model_path = 'binary_classifier.pth'
 amd_model_path = 'amd_model.pth'
 
 # Download models if they don't exist
@@ -38,7 +38,7 @@ class BinaryClassifier(nn.Module):
         x = self.sigmoid(x)
         return x
 
-# retinal_model = BinaryClassifier()
+retinal_model = torch.load('binary_classifier.pth')
 # retinal_model.load_state_dict(torch.load(retinal_model_path, map_location=torch.device('cpu')))
 # retinal_model.eval()
 
@@ -51,9 +51,9 @@ class AMDModel(nn.Module):
     def forward(self, x):
         return self.efficientnet(x)
 
-amd_model = AMDModel()
-amd_model.load_state_dict(torch.load(amd_model_path, map_location=torch.device('cpu')))
-amd_model.eval()
+amd_model = torch.load('amd_model.pth')
+# amd_model.load_state_dict(torch.load(amd_model_path, map_location=torch.device('cpu')))
+# amd_model.eval()
 
 # Define image transformations
 transform = transforms.Compose([
