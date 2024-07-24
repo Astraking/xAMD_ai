@@ -117,8 +117,8 @@ class GradCAM:
         heatmap = feature_map.detach().numpy()
         heatmap = np.mean(heatmap, axis=0)
         heatmap = np.maximum(heatmap, 0)
+        heatmap -= heatmap.min()
         heatmap /= heatmap.max()
-
         return heatmap
 
 # Function to generate Grad-CAM visualization
@@ -131,11 +131,12 @@ def generate_gradcam_image(image, model, target_layer):
     heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
 
     original_image = image.squeeze().permute(1, 2, 0).numpy()
-    original_image = (original_image - original_image.min()) / (original_image.max() - original_image.min())
+    original_image = np.clip(original_image, 0, 1)
     original_image = np.uint8(255 * original_image)
 
     superimposed_image = heatmap * 0.4 + original_image
-
+    superimposed_image = np.clip(superimposed_image, 0, 255)
+    
     return superimposed_image
 
 @st.cache_data
