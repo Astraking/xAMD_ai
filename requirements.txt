@@ -5,4 +5,4 @@ pillow
 gdown
 opencv-python
 numpy
-efficientnt-pytorch
+efficientnet-pytorch
