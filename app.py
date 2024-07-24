@@ -117,8 +117,9 @@ class GradCAM:
         heatmap = feature_map.detach().numpy()
         heatmap = np.mean(heatmap, axis=0)
         heatmap = np.maximum(heatmap, 0)
-        heatmap -= heatmap.min()
-        heatmap /= heatmap.max()
+        heatmap -= np.min(heatmap)
+        heatmap /= np.max(heatmap)
+
         return heatmap
 
 # Function to generate Grad-CAM visualization
@@ -134,8 +135,7 @@ def generate_gradcam_image(image, model, target_layer):
     original_image = np.clip(original_image, 0, 1)
     original_image = np.uint8(255 * original_image)
 
-    superimposed_image = heatmap * 0.4 + original_image
-    superimposed_image = np.clip(superimposed_image, 0, 255)
+    superimposed_image = np.clip(heatmap * 0.4 + original_image, 0, 255)
     
     return superimposed_image
 
@@ -205,7 +205,7 @@ elif choice == "Upload Image":
                     if amd_pred == 1:
                         st.write(f"AMD detected (Confidence: {amd_conf:.2f})")
                         # Generate Grad-CAM visualization
-                        target_layer = amd_model.features[8]
+                        target_layer = amd_model.efficientnet.features[8]
                         gradcam_image = generate_gradcam_image(image_tensor, amd_model, target_layer)
                         st.image(gradcam_image, caption='Grad-CAM Visualization', use_column_width=True)
                     else:
