@@ -204,7 +204,7 @@ elif choice == "Upload Image":
                     if amd_pred == 1:
                         st.write(f"AMD detected (Confidence: {amd_conf:.2f})")
                         # Generate Grad-CAM visualization
-                        target_layer = amd_model.efficientnet.features[8]
+                        target_layer = amd_model.features[8]
                         gradcam_image = generate_gradcam_image(image_tensor, amd_model, target_layer)
                         st.image(gradcam_image, caption='Grad-CAM Visualization', use_column_width=True)
                     else:
