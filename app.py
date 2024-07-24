@@ -162,7 +162,7 @@ def process_image(image, retinal_model, amd_model):
     
     with torch.no_grad():
         retinal_output = retinal_model(image_tensor)
-        # retinal_pred = torch.round(retinal_output).item()
+        retinal_pred = torch.round(retinal_output).item()
         retinal_conf = retinal_output.item()
 
     if retinal_pred == 0:
