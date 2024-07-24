@@ -150,7 +150,7 @@ def preprocess_image(_image):
     # Auto-equalize histogram
     image = ImageOps.equalize(image)
     
-    return _image
+    return image
 
 def process_image(image, retinal_model, amd_model):
     preprocessed_image = preprocess_image(image)
@@ -192,24 +192,27 @@ elif choice == "Upload Image":
 
     if uploaded_files:
         for uploaded_file in uploaded_files:
-            image = Image.open(uploaded_file)
-            st.image(image, caption='Uploaded Image', use_column_width=True)
-            
-            with st.spinner("Processing image..."):
-                retinal_pred, retinal_conf, amd_pred, amd_conf, image_tensor = process_image(image, retinal_model, amd_model)
+            try:
+                image = Image.open(uploaded_file)
+                st.image(image, caption='Uploaded Image', use_column_width=True)
+                
+                with st.spinner("Processing image..."):
+                    retinal_pred, retinal_conf, amd_pred, amd_conf, image_tensor = process_image(image, retinal_model, amd_model)
 
-            if retinal_pred == 0:
-                st.write(f"This is a retinal image (Confidence: {retinal_conf:.2f})")
-                if amd_pred == 0:
-                    st.write(f"AMD detected (Confidence: {amd_conf:.2f})")
-                    # Generate Grad-CAM visualization
-                    target_layer = amd_model.efficientnet.features[8]
-                    gradcam_image = generate_gradcam_image(image_tensor, amd_model, target_layer)
-                    st.image(gradcam_image, caption='Grad-CAM Visualization', use_column_width=True)
+                if retinal_pred == 0:
+                    st.write(f"This is a retinal image (Confidence: {retinal_conf:.2f})")
+                    if amd_pred == 0:
+                        st.write(f"AMD detected (Confidence: {amd_conf:.2f})")
+                        # Generate Grad-CAM visualization
+                        target_layer = amd_model.efficientnet.features[8]
+                        gradcam_image = generate_gradcam_image(image_tensor, amd_model, target_layer)
+                        st.image(gradcam_image, caption='Grad-CAM Visualization', use_column_width=True)
+                    else:
+                        st.write(f"No AMD detected (Confidence: {amd_conf:.2f})")
                 else:
-                    st.write(f"No AMD detected (Confidence: {amd_conf:.2f})")
-            else:
-                st.write(f"This is not a retinal image (Confidence: {1-retinal_conf:.2f})")
+                    st.write(f"This is not a retinal image (Confidence: {1-retinal_conf:.2f})")
+            except Exception as e:
+                st.error(f"Error processing image: {str(e)}")
 
 elif choice == "About AMD":
     st.header("About Age-related Macular Degeneration (AMD)")
