@@ -218,7 +218,7 @@ elif choice == "Upload Image":
                 else:
                     st.write("Unable to determine AMD presence.")
             else:
-                st.write(f"This is not a retinal image (Confidence: {1-retinal_conf:.2f})")
+                st.write(f"This is not a retinal image (Confidence: {retinal_conf:.2f})")
 
 elif choice == "About AMD":
     st.header("About Age-related Macular Degeneration (AMD)")
