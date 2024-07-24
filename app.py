@@ -133,9 +133,9 @@ def generate_gradcam_image(image, model, target_layer):
     return superimposed_image
 
 @st.cache_data
-def preprocess_image(image):
+def preprocess_image(_image):
     # Add preprocessing steps here (e.g., contrast enhancement)
-    return image
+    return _image
 
 def process_image(image, retinal_model, amd_model):
     image_tensor = transform(preprocess_image(image)).unsqueeze(0)
