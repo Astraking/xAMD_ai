@@ -161,7 +161,7 @@ def process_image(image, retinal_model, amd_model):
         retinal_pred = torch.round(retinal_output).item()
         retinal_conf = retinal_output.item()
 
-    if retinal_pred == 1:
+    if retinal_pred == 0:
         with torch.no_grad():
             amd_output = amd_model(image_tensor)
             amd_pred = torch.argmax(amd_output, dim=1).item()
