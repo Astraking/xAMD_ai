@@ -148,11 +148,9 @@ def generate_gradcam_image(image, model, target_layer):
 def preprocess_image(_image):
     # Convert to RGB if it's not already
     image = _image.convert('RGB')
-    
     # Enhance contrast
     enhancer = ImageEnhance.Contrast(image)
     image = enhancer.enhance(1.5)  # Increase contrast by 50%
-    
     # Auto-equalize histogram
     image = ImageOps.equalize(image)
     
@@ -164,7 +162,7 @@ def process_image(image, retinal_model, amd_model):
     
     with torch.no_grad():
         retinal_output = retinal_model(image_tensor)
-        retinal_pred = torch.round(retinal_output).item()
+        # retinal_pred = torch.round(retinal_output).item()
         retinal_conf = retinal_output.item()
 
     if retinal_pred == 0:
