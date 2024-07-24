@@ -204,7 +204,7 @@ elif choice == "Upload Image":
             with st.spinner("Processing image..."):
                 retinal_pred, retinal_conf, amd_pred, amd_conf, image_tensor = process_image(image, retinal_model, amd_model)
 
-            if retinal_pred == 0:
+            if retinal_pred == 1:
                 st.write(f"This is a retinal image (Confidence: {retinal_conf:.2f})")
                 if amd_pred == 1:
                     st.write(f"AMD detected (Confidence: {amd_conf:.2f})")
