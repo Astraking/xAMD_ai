@@ -2,19 +2,22 @@ import streamlit as st
 import torch
 import torch.nn as nn
 from efficientnet_pytorch import EfficientNet
-from PIL import Image
+from PIL import Image, ImageOps, ImageEnhance
 import torchvision.transforms as transforms
 import numpy as np
 import cv2
 import os
 import gdown
 
+# Set page config
+st.set_page_config(page_title="AMD Screening App", layout="wide")
+
 # Define model classes
 class BinaryClassifier(nn.Module):
-    def __init__(self):
+    def __init__(self, num_classes=1):
         super(BinaryClassifier, self).__init__()
         self.efficientnet = EfficientNet.from_pretrained('efficientnet-b1')
-        self.efficientnet._fc = nn.Linear(self.efficientnet._fc.in_features, 1)
+        self.efficientnet._fc = nn.Linear(self.efficientnet._fc.in_features, num_classes)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
@@ -23,20 +26,23 @@ class BinaryClassifier(nn.Module):
         return x
 
 class AMDModel(nn.Module):
-    def __init__(self):
+    def __init__(self, num_classes=2):
         super(AMDModel, self).__init__()
         self.efficientnet = EfficientNet.from_pretrained('efficientnet-b1')
-        self.efficientnet._fc = nn.Linear(self.efficientnet._fc.in_features, 2)  # Assuming 2 classes
+        self.efficientnet._fc = nn.Linear(self.efficientnet._fc.in_features, num_classes)
 
     def forward(self, x):
         return self.efficientnet(x)
 
-# Load models
 @st.cache_resource
 def load_model(model_class, path):
     try:
         model = model_class()
-        model.load_state_dict(torch.load(path, map_location=torch.device('cpu')))
+        state_dict = torch.load(path, map_location=torch.device('cpu'))
+        if isinstance(state_dict, dict):
+            model.load_state_dict(state_dict)
+        else:
+            model = state_dict
         model.eval()
         return model
     except Exception as e:
@@ -50,7 +56,7 @@ def download_model(model_id, model_path):
             gdown.download(f'https://drive.google.com/uc?id={model_id}', model_path, quiet=False)
 
 # Define model paths
-retinal_model_path = 'retinal_model.pth'
+retinal_model_path = 'binary_classifier.pth'
 amd_model_path = 'amd_model.pth'
 
 # Download models
@@ -124,12 +130,22 @@ def generate_gradcam_image(image, model, target_layer):
     return superimposed_image
 
 @st.cache_data
-def preprocess_image(image):
-    # Add preprocessing steps here (e.g., contrast enhancement)
-    return image
+def preprocess_image(_image):
+    # Convert to RGB if it's not already
+    image = _image.convert('RGB')
+    
+    # Enhance contrast
+    enhancer = ImageEnhance.Contrast(image)
+    image = enhancer.enhance(1.5)  # Increase contrast by 50%
+    
+    # Auto-equalize histogram
+    image = ImageOps.equalize(image)
+    
+    return _image
 
 def process_image(image, retinal_model, amd_model):
-    image_tensor = transform(preprocess_image(image)).unsqueeze(0)
+    preprocessed_image = preprocess_image(image)
+    image_tensor = transform(preprocessed_image).unsqueeze(0)
     
     with torch.no_grad():
         retinal_output = retinal_model(image_tensor)
@@ -147,8 +163,6 @@ def process_image(image, retinal_model, amd_model):
     return retinal_pred, retinal_conf, None, None, image_tensor
 
 # Streamlit interface
-st.set_page_config(page_title="AMD Screening App", layout="wide")
-
 st.title("AMD Screening App")
 
 # Navigation
@@ -175,12 +189,12 @@ elif choice == "Upload Image":
             with st.spinner("Processing image..."):
                 retinal_pred, retinal_conf, amd_pred, amd_conf, image_tensor = process_image(image, retinal_model, amd_model)
 
-            if retinal_pred == 1:
+            if retinal_pred == 0:
                 st.write(f"This is a retinal image (Confidence: {retinal_conf:.2f})")
                 if amd_pred == 0:
                     st.write(f"AMD detected (Confidence: {amd_conf:.2f})")
                     # Generate Grad-CAM visualization
-                    target_layer = list(amd_model.efficientnet.children())[-1]
+                    target_layer = amd_model.efficientnet._conv_head
                     gradcam_image = generate_gradcam_image(image_tensor, amd_model, target_layer)
                     st.image(gradcam_image, caption='Grad-CAM Visualization', use_column_width=True)
                 else:
