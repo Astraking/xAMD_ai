@@ -2,53 +2,41 @@ import streamlit as st
 import torch
 import torch.nn as nn
 from efficientnet_pytorch import EfficientNet
-from PIL import Image, ImageOps, ImageEnhance
+from PIL import Image
 import torchvision.transforms as transforms
 import numpy as np
 import cv2
 import os
 import gdown
 
-# Set page config
-st.set_page_config(page_title="AMD Screening App", layout="wide")
-
 # Define model classes
 class BinaryClassifier(nn.Module):
-    def __init__(self, num_classes=1):
+    def __init__(self):
         super(BinaryClassifier, self).__init__()
         self.efficientnet = EfficientNet.from_pretrained('efficientnet-b1')
-        self.efficientnet._fc = nn.Linear(self.efficientnet._fc.in_features, num_classes)
+        self.efficientnet._fc = nn.Linear(self.efficientnet._fc.in_features, 1)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
-        x = self.efficientnet.extract_features(x)
-        x = self.efficientnet._avg_pooling(x)
-        x = x.flatten(start_dim=1)
-        x = self.efficientnet._dropout(x)
-        x = self.efficientnet._fc(x)
+        x = self.efficientnet(x)
         x = self.sigmoid(x)
         return x
 
 class AMDModel(nn.Module):
-    def __init__(self, num_classes=2):
+    def __init__(self):
         super(AMDModel, self).__init__()
         self.efficientnet = EfficientNet.from_pretrained('efficientnet-b1')
-        self.efficientnet._fc = nn.Linear(self.efficientnet._fc.in_features, num_classes)
+        self.efficientnet._fc = nn.Linear(self.efficientnet._fc.in_features, 2)  # Assuming 2 classes
 
     def forward(self, x):
-        x = self.efficientnet.extract_features(x)
-        x = self.efficientnet._avg_pooling(x)
-        x = x.flatten(start_dim=1)
-        x = self.efficientnet._dropout(x)
-        x = self.efficientnet._fc(x)
-        return x
+        return self.efficientnet(x)
 
+# Load models
 @st.cache_resource
 def load_model(model_class, path):
     try:
         model = model_class()
-        state_dict = torch.load(path, map_location=torch.device('cpu'))
-        model.load_state_dict(state_dict)
+        model.load_state_dict(torch.load(path, map_location=torch.device('cpu')))
         model.eval()
         return model
     except Exception as e:
@@ -62,7 +50,7 @@ def download_model(model_id, model_path):
             gdown.download(f'https://drive.google.com/uc?id={model_id}', model_path, quiet=False)
 
 # Define model paths
-retinal_model_path = 'binary_classifier.pth'
+retinal_model_path = 'retinal_model.pth'
 amd_model_path = 'amd_model.pth'
 
 # Download models
@@ -122,47 +110,33 @@ class GradCAM:
 def generate_gradcam_image(image, model, target_layer):
     grad_cam = GradCAM(model, target_layer)
     heatmap = grad_cam(image)
+
     heatmap = cv2.resize(heatmap, (image.shape[2], image.shape[3]))
     heatmap = np.uint8(255 * heatmap)
     heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+
     original_image = image.squeeze().permute(1, 2, 0).numpy()
-    # Normalize the image to [0, 1] range
     original_image = (original_image - original_image.min()) / (original_image.max() - original_image.min())
-    # Convert to uint8
     original_image = np.uint8(255 * original_image)
-    # Convert heatmap to RGB (it's currently in BGR)
-    heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB)
-    # Ensure both images are in the same data type
-    heatmap = heatmap.astype(np.float32) / 255
-    original_image = original_image.astype(np.float32) / 255
-    # Create the superimposed image
-    superimposed_image = heatmap * 0.4 + original_image * 0.6
-    # Ensure the final image is in [0, 1] range
-    superimposed_image = np.clip(superimposed_image, 0, 1)
+
+    superimposed_image = heatmap * 0.4 + original_image
+
     return superimposed_image
 
 @st.cache_data
-def preprocess_image(_image):
-    # Convert to RGB if it's not already
-    image = _image.convert('RGB')
-    # Enhance contrast
-    enhancer = ImageEnhance.Contrast(image)
-    image = enhancer.enhance(1.5)  # Increase contrast by 50%
-    # Auto-equalize histogram
-    image = ImageOps.equalize(image)
-    
+def preprocess_image(image):
+    # Add preprocessing steps here (e.g., contrast enhancement)
     return image
 
 def process_image(image, retinal_model, amd_model):
-    preprocessed_image = preprocess_image(image)
-    image_tensor = transform(preprocessed_image).unsqueeze(0)
+    image_tensor = transform(preprocess_image(image)).unsqueeze(0)
     
     with torch.no_grad():
         retinal_output = retinal_model(image_tensor)
-        retinal_pred = (retinal_output > 0.5).float().item()  # Use a threshold of 0.5
+        retinal_pred = torch.round(retinal_output).item()
         retinal_conf = retinal_output.item()
 
-    if retinal_pred == 0:  # This is a retinal image
+    if retinal_pred == 1:
         with torch.no_grad():
             amd_output = amd_model(image_tensor)
             amd_pred = torch.argmax(amd_output, dim=1).item()
@@ -173,6 +147,8 @@ def process_image(image, retinal_model, amd_model):
     return retinal_pred, retinal_conf, None, None, image_tensor
 
 # Streamlit interface
+st.set_page_config(page_title="AMD Screening App", layout="wide")
+
 st.title("AMD Screening App")
 
 # Navigation
@@ -199,25 +175,19 @@ elif choice == "Upload Image":
             with st.spinner("Processing image..."):
                 retinal_pred, retinal_conf, amd_pred, amd_conf, image_tensor = process_image(image, retinal_model, amd_model)
 
-            # Debugging outputs
-            st.write(f"Retinal Model Output: {retinal_conf:.2f}")
-            st.write(f"Retinal Prediction: {'Retinal' if retinal_pred == 0 else 'Non-Retinal'}")
-
-            if retinal_pred == 0:
+            if retinal_pred == 1:
                 st.write(f"This is a retinal image (Confidence: {retinal_conf:.2f})")
-                if amd_pred is not None:
-                    if amd_pred == 0:
-                        st.write(f"AMD detected (Confidence: {amd_conf:.2f})")
-                        # Generate Grad-CAM visualization
-                        target_layer = amd_model.efficientnet._conv_head
-                        gradcam_image = generate_gradcam_image(image_tensor, amd_model, target_layer)
-                        st.image(gradcam_image, caption='Grad-CAM Visualization', use_column_width=True)
-                    else:
-                        st.write(f"No AMD detected (Confidence: {amd_conf:.2f})")
+                if amd_pred == 0:
+                    st.write(f"AMD detected (Confidence: {amd_conf:.2f})")
+                    # Generate Grad-CAM visualization
+                    target_layer = list(amd_model.efficientnet.children())[-1]
+                    gradcam_image = generate_gradcam_image(image_tensor, amd_model, target_layer)
+                    st.image(gradcam_image, caption='Grad-CAM Visualization', use_column_width=True)
                 else:
-                    st.write("AMD Model did not return a prediction.")
+                    st.write(f"No AMD detected (Confidence: {amd_conf:.2f})")
             else:
-                st.write("The uploaded image was classified as non-retinal.")
+                st.write(f"This is not a retinal image (Confidence: {1-retinal_conf:.2f})")
+
 elif choice == "About AMD":
     st.header("About Age-related Macular Degeneration (AMD)")
     st.write("""
@@ -255,11 +225,4 @@ elif choice == "About AMD":
 
 # Add a footer
 st.sidebar.markdown("---")
-st.sidebar.info("Developed by [Your Name/Organization]")
-
-# Additional information or resources can be added here
-st.sidebar.markdown("### Additional Resources")
-st.sidebar.write("""
-- [AMD Research and Treatment](https://www.americanmaculardegenerationfoundation.org/)
-- [AMD Support Groups](https://www.amdalliance.org/)
-""")
+st.sidebar.info("Developed by xAMD.ai Inc.")
