@@ -124,13 +124,13 @@ elif choice == "Upload Image":
             retinal_output = retinal_model(image_tensor)
             retinal_pred = torch.argmax(retinal_output, dim=1).item()
 
-        if retinal_pred == 1:
+        if retinal_pred == 0:
             st.write("This is a retinal image. Checking for AMD...")
             with torch.no_grad():
                 amd_output = amd_model(image_tensor)
                 amd_pred = torch.argmax(amd_output, dim=1).item()
 
-            if amd_pred == 1:
+            if amd_pred == 0:
                 st.write("AMD detected.")
                 # Generate Grad-CAM visualization
                 target_layer = list(amd_model.children())[-1]  # Adjust based on your model architecture
