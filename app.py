@@ -35,8 +35,14 @@ class AMDModel(nn.Module):
 @st.cache_resource
 def load_model(model_class, path):
     try:
+        # First, try loading as if it's a state dict
         model = model_class()
-        model.load_state_dict(torch.load(path, map_location=torch.device('cpu')))
+        state_dict = torch.load(path, map_location=torch.device('cpu'))
+        if isinstance(state_dict, dict):
+            model.load_state_dict(state_dict)
+        else:
+            # If it's not a dict, assume it's the full model
+            model = state_dict
         model.eval()
         return model
     except Exception as e:
